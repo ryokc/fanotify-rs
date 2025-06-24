@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use std::path::Path;
 use std::time::Duration;
 use std::thread;
 
-use fanotify_rs::{Fanotify, FanotifyFlags, MaskFlags, EventFlags};
+use fanotify_rs::{Fanotify, FanotifyFlags, MaskFlags};
 
 /// Simple access control based on process ID
 struct AccessController {

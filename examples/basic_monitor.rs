@@ -1,8 +1,6 @@
-use std::path::Path;
+use fanotify_rs::{Fanotify, FanotifyFlags, MaskFlags};
 use std::time::Duration;
 use std::thread;
-
-use fanotify_rs::{Fanotify, FanotifyFlags, MaskFlags};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting fanotify monitor...");

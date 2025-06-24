@@ -248,7 +248,6 @@ impl<'a> EventIterator<'a> {
 mod tests {
     use super::*;
     use tempfile::tempdir;
-    use std::fs;
 
     #[test]
     fn test_fanotify_creation() {

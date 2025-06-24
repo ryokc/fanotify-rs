@@ -1,7 +1,7 @@
-use std::path::Path;
 use std::time::Duration;
 
-use fanotify_rs::{AsyncFanotify, FanotifyFlags, MaskFlags};
+use fanotify_rs::{FanotifyFlags, MaskFlags};
+use fanotify_rs::async_fanotify::AsyncFanotify;
 use tokio::time::sleep;
 
 #[tokio::main]

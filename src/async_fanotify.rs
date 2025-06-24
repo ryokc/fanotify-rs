@@ -6,13 +6,13 @@ use std::collections::HashMap;
 use std::pin::Pin;
 #[cfg(feature = "tokio")]
 use std::task::{Context, Poll};
-
 #[cfg(feature = "tokio")]
-use tokio::io::{AsyncRead, AsyncWrite};
+use std::os::fd::{AsRawFd, FromRawFd};
+
 #[cfg(feature = "tokio")]
 use tokio::fs::File;
 #[cfg(feature = "tokio")]
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 
 use crate::{
     error::{FanotifyError, Result},
@@ -49,14 +49,16 @@ impl AsyncFanotify {
         let fd = unsafe {
             let result = fanotify_init(
                 flags.bits(),
-                libc::O_RDONLY | libc::O_CLOEXEC,
+                (libc::O_RDONLY | libc::O_CLOEXEC) as u32,
             );
 
             if result < 0 {
                 return Err(FanotifyError::from(errno()));
             }
 
-            File::from_std(std::fs::File::from_raw_fd(result))
+            // SAFETY: result is a valid file descriptor
+            let std_file = std::fs::File::from_raw_fd(result);
+            File::from_std(std_file)
         };
 
         Ok(Self {
@@ -253,15 +255,16 @@ impl std::os::unix::io::AsRawFd for AsyncFanotify {
 
 /// A stream of fanotify events for use with tokio streams
 #[cfg(feature = "tokio")]
+#[allow(dead_code)]
 pub struct EventStream<'a> {
     fanotify: &'a mut AsyncFanotify,
 }
 
 #[cfg(feature = "tokio")]
-impl<'a> tokio::stream::Stream for EventStream<'a> {
+impl<'a> futures::Stream for EventStream<'a> {
     type Item = Result<Event>;
 
-    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // This is a simplified implementation. In a real implementation,
         // you would need to handle the async reading properly with tokio's
         // async I/O primitives.

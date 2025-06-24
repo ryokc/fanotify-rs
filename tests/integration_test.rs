@@ -1,4 +1,4 @@
-use fanotify_rs::{Fanotify, FanotifyFlags, MaskFlags};
+use fanotify_rs::{Fanotify, MaskFlags};
 use tempfile::tempdir;
 use std::fs;
 use std::path::Path;

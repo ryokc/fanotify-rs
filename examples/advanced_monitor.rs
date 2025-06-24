@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::thread;
 
@@ -32,7 +32,6 @@ impl Default for MonitorConfig {
 }
 
 /// Statistics for the monitor
-#[derive(Default)]
 struct MonitorStats {
     total_events: u64,
     access_events: u64,
@@ -48,8 +47,15 @@ struct MonitorStats {
 impl MonitorStats {
     fn new() -> Self {
         Self {
+            total_events: 0,
+            access_events: 0,
+            modify_events: 0,
+            create_events: 0,
+            delete_events: 0,
+            move_events: 0,
+            permission_events: 0,
             start_time: Instant::now(),
-            ..Default::default()
+            last_event_time: None,
         }
     }
     
