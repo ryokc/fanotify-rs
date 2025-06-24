@@ -1,0 +1,37 @@
+[package]
+name = "fanotify-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "An idiomatic Rust wrapper for Linux fanotify"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/fanotify-rs"
+keywords = ["fanotify", "linux", "filesystem", "monitoring", "events"]
+categories = ["filesystem", "os"]
+
+[dependencies]
+libc = { version = "0.2", features = ["extra_traits"] }
+bitflags = "2.4"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1.0", features = ["full"], optional = true }
+
+[dev-dependencies]
+tempfile = "3.8"
+tokio = { version = "1.0", features = ["full"] }
+
+[[example]]
+name = "basic_monitor"
+path = "examples/basic_monitor.rs"
+
+[[example]]
+name = "async_monitor"
+path = "examples/async_monitor.rs"
+
+[[example]]
+name = "permission_monitor"
+path = "examples/permission_monitor.rs"
+
+[[example]]
+name = "advanced_monitor"
+path = "examples/advanced_monitor.rs" 
