@@ -27,5 +27,5 @@ jobs:
       
     - name: Run tests with sudo
       run: |
-        sudo rustup default stable
-        sudo $(which cargo) test --verbose 
+        sudo $(which rustup) default stable
+        sudo $(which cargo) test --verbose
