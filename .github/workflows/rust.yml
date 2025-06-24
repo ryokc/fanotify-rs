@@ -26,4 +26,4 @@ jobs:
       run: cargo build --verbose
       
     - name: Run tests with sudo
-      run: sudo -E cargo test --verbose
+      run: sudo $(which cargo) test --verbose
