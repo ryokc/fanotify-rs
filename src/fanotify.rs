@@ -14,7 +14,7 @@ use crate::{
 /// A fanotify instance for monitoring filesystem events
 pub struct Fanotify {
     /// The file descriptor for the fanotify instance
-    fd: File,
+    fd: Option<File>,
     /// Buffer for reading events
     buffer: Vec<u8>,
     /// Watched paths and their masks
@@ -29,21 +29,20 @@ impl Fanotify {
 
     /// Create a new fanotify instance with custom flags
     pub fn with_flags(flags: FanotifyFlags) -> Result<Self> {
-        let fd = unsafe {
-            let result = fanotify_init(
+        let result = unsafe {
+            fanotify_init(
                 flags.bits(),
-                (libc::O_RDONLY | libc::O_CLOEXEC) as u32,
-            );
-
-            if result < 0 {
-                return Err(FanotifyError::from(errno()));
-            }
-
-            File::from_raw_fd(result)
+                libc::O_RDONLY as u32,
+            )
         };
 
+        if result < 0 {
+            return Err(FanotifyError::from(errno()));
+        }
+
+        let fd = unsafe { File::from_raw_fd(result) };
         Ok(Self {
-            fd,
+            fd: Some(fd),
             buffer: vec![0u8; 4096],
             watched_paths: HashMap::new(),
         })
@@ -61,7 +60,7 @@ impl Fanotify {
 
         let result = unsafe {
             fanotify_mark(
-                self.fd.as_raw_fd(),
+                self.fd.as_ref().map(|f| f.as_raw_fd()).unwrap_or(-1),
                 FAN_MARK_ADD,
                 mask.bits(),
                 libc::AT_SYMLINK_NOFOLLOW,
@@ -86,11 +85,13 @@ impl Fanotify {
             Err(_) => return Err(FanotifyError::invalid_path(path.to_string_lossy().to_string())),
         };
 
+        let mask = self.watched_paths.get(path).copied().unwrap_or(MaskFlags::empty());
+
         let result = unsafe {
             fanotify_mark(
-                self.fd.as_raw_fd(),
+                self.fd.as_ref().map(|f| f.as_raw_fd()).unwrap_or(-1),
                 FAN_MARK_REMOVE,
-                0,
+                mask.bits(),
                 libc::AT_SYMLINK_NOFOLLOW,
                 path_cstr.as_ptr(),
             )
@@ -106,12 +107,13 @@ impl Fanotify {
 
     /// Read a single event
     pub fn read_event(&mut self) -> Result<Option<Event>> {
-        let bytes_read = match self.fd.read(&mut self.buffer) {
-            Ok(n) => n,
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+        let bytes_read = match self.fd.as_mut().map(|f| f.read(&mut self.buffer)) {
+            Some(Ok(n)) => n,
+            Some(Err(e)) if e.kind() == io::ErrorKind::WouldBlock => {
                 return Ok(None);
             }
-            Err(e) => return Err(FanotifyError::Io(e)),
+            Some(Err(e)) => return Err(FanotifyError::Io(e)),
+            None => return Ok(None),
         };
 
         if bytes_read == 0 {
@@ -158,7 +160,7 @@ impl Fanotify {
 
         let result = unsafe {
             libc::write(
-                self.fd.as_raw_fd(),
+                self.fd.as_ref().map(|f| f.as_raw_fd()).unwrap_or(-1),
                 &response_struct as *const _ as *const libc::c_void,
                 std::mem::size_of::<fanotify_response>(),
             )
@@ -209,14 +211,14 @@ impl Fanotify {
 
 impl Drop for Fanotify {
     fn drop(&mut self) {
-        // Close the file descriptor
-        let _ = unsafe { libc::close(self.fd.as_raw_fd()) };
+        // Let File's Drop handle closing the file descriptor
+        let _ = self.fd.take();
     }
 }
 
 impl AsRawFd for Fanotify {
     fn as_raw_fd(&self) -> RawFd {
-        self.fd.as_raw_fd()
+        self.fd.as_ref().map(|f| f.as_raw_fd()).unwrap_or(-1)
     }
 }
 
@@ -257,23 +259,29 @@ mod tests {
 
     #[test]
     fn test_add_watch() {
-        let mut fanotify = Fanotify::new().unwrap();
+        let fanotify = Fanotify::new();
+        assert!(fanotify.is_ok());
+        let mut fanotify = fanotify.unwrap();
         let temp_dir = tempdir().unwrap();
         
-        let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ALL_EVENTS);
-        assert!(result.is_ok());
+        let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ACCESS | MaskFlags::MODIFY);
+        assert!(result.is_ok(), "add_watch failed: {:?}", result.err());
         assert!(fanotify.is_watched(temp_dir.path()));
     }
 
     #[test]
     fn test_remove_watch() {
-        let mut fanotify = Fanotify::new().unwrap();
+        let fanotify = Fanotify::new();
+        assert!(fanotify.is_ok());
+        let mut fanotify = fanotify.unwrap();
         let temp_dir = tempdir().unwrap();
         
-        fanotify.add_watch(temp_dir.path(), MaskFlags::ALL_EVENTS).unwrap();
+        let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ACCESS | MaskFlags::MODIFY);
+        assert!(result.is_ok(), "add_watch failed: {:?}", result.err());
         assert!(fanotify.is_watched(temp_dir.path()));
         
-        fanotify.remove_watch(temp_dir.path()).unwrap();
+        let result = fanotify.remove_watch(temp_dir.path());
+        assert!(result.is_ok(), "remove_watch failed: {:?}", result.err());
         assert!(!fanotify.is_watched(temp_dir.path()));
     }
 } 

@@ -1,54 +1,34 @@
 use bitflags::bitflags;
-use crate::linux::{O_LARGEFILE, O_NOATIME};
+// use crate::linux::{O_LARGEFILE, O_NOATIME};
 
 bitflags! {
-    /// Flags for fanotify initialization
+    /// Flags for fanotify initialization (FAN_* flags)
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct FanotifyFlags: u32 {
-        /// Close-on-exec flag
-        const CLOEXEC = libc::O_CLOEXEC as u32;
-        
-        /// Non-blocking flag
-        const NONBLOCK = libc::O_NONBLOCK as u32;
-        
-        /// Read-only flag
-        const RDONLY = libc::O_RDONLY as u32;
-        
-        /// Write-only flag
-        const WRONLY = libc::O_WRONLY as u32;
-        
-        /// Read-write flag
-        const RDWR = libc::O_RDWR as u32;
-        
-        /// Large file support
-        const LARGEFILE = O_LARGEFILE as u32;
-        
-        /// No access time updates
-        const NOATIME = O_NOATIME as u32;
-        
-        /// Directory-only operations
-        const DIRECTORY = libc::O_DIRECTORY as u32;
-        
-        /// Follow symbolic links
-        const NOFOLLOW = libc::O_NOFOLLOW as u32;
-        
-        /// Synchronous I/O
-        const SYNC = libc::O_SYNC as u32;
-        
-        /// Data synchronization
-        const DSYNC = libc::O_DSYNC as u32;
-        
-        /// Append mode
-        const APPEND = libc::O_APPEND as u32;
-        
-        /// Create if not exists
-        const CREAT = libc::O_CREAT as u32;
-        
-        /// Exclusive creation
-        const EXCL = libc::O_EXCL as u32;
-        
-        /// Truncate on open
-        const TRUNC = libc::O_TRUNC as u32;
+        /// Close-on-exec flag (FAN_CLOEXEC)
+        const CLOEXEC = 0x00000001;
+        /// Non-blocking flag (FAN_NONBLOCK)
+        const NONBLOCK = 0x00000002;
+        /// Notification class (FAN_CLASS_NOTIF)
+        const CLASS_NOTIF = 0x00000000;
+        /// Content class (FAN_CLASS_CONTENT)
+        const CLASS_CONTENT = 0x00000004;
+        /// Pre-content class (FAN_CLASS_PRE_CONTENT)
+        const CLASS_PRE_CONTENT = 0x00000008;
+        /// Unlimited queue (FAN_UNLIMITED_QUEUE)
+        const UNLIMITED_QUEUE = 0x00000010;
+        /// Unlimited marks (FAN_UNLIMITED_MARKS)
+        const UNLIMITED_MARKS = 0x00000020;
+        /// Report TID (FAN_REPORT_TID)
+        const REPORT_TID = 0x00000100;
+        /// Report FID (FAN_REPORT_FID)
+        const REPORT_FID = 0x00000200;
+        /// Report DIR FID (FAN_REPORT_DIR_FID)
+        const REPORT_DIR_FID = 0x00000400;
+        /// Report NAME (FAN_REPORT_NAME)
+        const REPORT_NAME = 0x00000800;
+        /// Report DFID NAME (FAN_REPORT_DFID_NAME)
+        const REPORT_DFID_NAME = 0x00000c00;
     }
 }
 
@@ -114,7 +94,7 @@ bitflags! {
 
 impl Default for FanotifyFlags {
     fn default() -> Self {
-        FanotifyFlags::RDONLY | FanotifyFlags::CLOEXEC
+        FanotifyFlags::CLASS_NOTIF | FanotifyFlags::CLOEXEC
     }
 }
 

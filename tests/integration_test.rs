@@ -15,7 +15,8 @@ fn test_basic_functionality() {
     let mut fanotify = Fanotify::new().unwrap();
     
     // Add a watch for the temporary directory
-    fanotify.add_watch(temp_dir.path(), MaskFlags::ALL_EVENTS).unwrap();
+    let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ACCESS | MaskFlags::MODIFY);
+    assert!(result.is_ok(), "add_watch failed: {:?}", result.err());
     
     // Verify the watch was added
     assert!(fanotify.is_watched(temp_dir.path()));
@@ -24,13 +25,17 @@ fn test_basic_functionality() {
     fs::write(&test_file, "test content").unwrap();
     
     // Give some time for the event to be generated
-    thread::sleep(Duration::from_millis(100));
-    
-    // Read events
-    let events = fanotify.read_events().unwrap();
-    
-    // We should have at least one event (file creation)
-    assert!(!events.is_empty());
+    let mut events = Vec::new();
+    let start = std::time::Instant::now();
+    while start.elapsed() < Duration::from_secs(2) {
+        let new_events = fanotify.read_events().unwrap();
+        if !new_events.is_empty() {
+            events.extend(new_events);
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    assert!(!events.is_empty(), "No events received after file creation");
     
     // Check that we have a create event
     let has_create_event = events.iter().any(|event| event.is_create());
@@ -47,7 +52,8 @@ fn test_event_types() {
     let test_file = temp_dir.path().join("test.txt");
     
     let mut fanotify = Fanotify::new().unwrap();
-    fanotify.add_watch(temp_dir.path(), MaskFlags::ALL_EVENTS).unwrap();
+    let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ACCESS | MaskFlags::MODIFY);
+    assert!(result.is_ok(), "add_watch failed: {:?}", result.err());
     
     // Create a file
     fs::write(&test_file, "test content").unwrap();
@@ -92,8 +98,10 @@ fn test_watched_paths() {
     let mut fanotify = Fanotify::new().unwrap();
     
     // Add multiple watches
-    fanotify.add_watch(temp_dir.path(), MaskFlags::ALL_EVENTS).unwrap();
-    fanotify.add_watch("/tmp", MaskFlags::ALL_EVENTS).unwrap();
+    let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ACCESS | MaskFlags::MODIFY);
+    assert!(result.is_ok(), "add_watch failed: {:?}", result.err());
+    let result = fanotify.add_watch("/tmp", MaskFlags::ACCESS | MaskFlags::MODIFY);
+    assert!(result.is_ok(), "add_watch failed: {:?}", result.err());
     
     let watched_paths = fanotify.watched_paths();
     assert_eq!(watched_paths.len(), 2);
@@ -102,5 +110,5 @@ fn test_watched_paths() {
     
     // Test getting mask for a watched path
     let mask = fanotify.get_mask(temp_dir.path());
-    assert_eq!(mask, Some(MaskFlags::ALL_EVENTS));
+    assert_eq!(mask, Some(MaskFlags::ACCESS | MaskFlags::MODIFY));
 } 

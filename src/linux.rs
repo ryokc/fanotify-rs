@@ -160,7 +160,7 @@ pub const SYS_FANOTIFY_MARK: i32 = 301;
 
 // Wrapper functions for system calls
 pub unsafe fn fanotify_init(flags: u32, event_f_flags: u32) -> i32 {
-    libc::syscall(SYS_FANOTIFY_INIT, flags as i64, event_f_flags as i64) as i32
+    libc::syscall(SYS_FANOTIFY_INIT.into(), flags as i64, event_f_flags as i64) as i32
 }
 
 pub unsafe fn fanotify_mark(
@@ -171,7 +171,7 @@ pub unsafe fn fanotify_mark(
     pathname: *const i8,
 ) -> i32 {
     libc::syscall(
-        SYS_FANOTIFY_MARK,
+        SYS_FANOTIFY_MARK.into(),
         fanotify_fd as i64,
         flags as i64,
         mask as i64,

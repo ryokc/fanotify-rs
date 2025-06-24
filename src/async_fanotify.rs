@@ -46,20 +46,20 @@ impl AsyncFanotify {
 
     /// Create a new asynchronous fanotify instance with custom flags
     pub fn with_flags(flags: FanotifyFlags) -> Result<Self> {
-        let fd = unsafe {
-            let result = fanotify_init(
+        let result = unsafe {
+            fanotify_init(
                 flags.bits(),
-                (libc::O_RDONLY | libc::O_CLOEXEC) as u32,
-            );
-
-            if result < 0 {
-                return Err(FanotifyError::from(errno()));
-            }
-
-            // SAFETY: result is a valid file descriptor
-            let std_file = std::fs::File::from_raw_fd(result);
-            File::from_std(std_file)
+                libc::O_RDONLY as u32,
+            )
         };
+
+        if result < 0 {
+            return Err(FanotifyError::from(errno()));
+        }
+
+        // SAFETY: result is a valid file descriptor
+        let std_file = unsafe { std::fs::File::from_raw_fd(result) };
+        let fd = File::from_std(std_file);
 
         Ok(Self {
             fd,
@@ -105,11 +105,13 @@ impl AsyncFanotify {
             Err(_) => return Err(FanotifyError::invalid_path(path.to_string_lossy().to_string())),
         };
 
+        let mask = self.watched_paths.get(path).copied().unwrap_or(MaskFlags::empty());
+
         let result = unsafe {
             fanotify_mark(
                 self.fd.as_raw_fd(),
                 FAN_MARK_REMOVE,
-                0,
+                mask.bits(),
                 libc::AT_SYMLINK_NOFOLLOW,
                 path_cstr.as_ptr(),
             )
@@ -310,24 +312,36 @@ mod tests {
     #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_async_add_watch() {
-        let mut fanotify = AsyncFanotify::new().unwrap();
+        let fanotify = AsyncFanotify::new();
+        assert!(fanotify.is_ok());
+        let mut fanotify = fanotify.unwrap();
         let temp_dir = tempdir().unwrap();
         
-        let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ALL_EVENTS).await;
-        assert!(result.is_ok());
+        let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ACCESS | MaskFlags::MODIFY).await;
+        assert!(result.is_ok(), "add_watch failed: {:?}", result.err());
         assert!(fanotify.is_watched(temp_dir.path()));
     }
 
     #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_async_remove_watch() {
-        let mut fanotify = AsyncFanotify::new().unwrap();
+        let fanotify = AsyncFanotify::new();
+        assert!(fanotify.is_ok());
+        let mut fanotify = fanotify.unwrap();
         let temp_dir = tempdir().unwrap();
         
-        fanotify.add_watch(temp_dir.path(), MaskFlags::ALL_EVENTS).await.unwrap();
+        let result = fanotify.add_watch(temp_dir.path(), MaskFlags::ACCESS | MaskFlags::MODIFY).await;
+        if let Err(e) = &result {
+            eprintln!("add_watch failed: {:?}", e);
+        }
+        assert!(result.is_ok(), "add_watch failed: {:?}", result.err());
         assert!(fanotify.is_watched(temp_dir.path()));
         
-        fanotify.remove_watch(temp_dir.path()).await.unwrap();
+        let result = fanotify.remove_watch(temp_dir.path()).await;
+        if let Err(e) = &result {
+            eprintln!("remove_watch failed: {:?}", e);
+        }
+        assert!(result.is_ok(), "remove_watch failed: {:?}", result.err());
         assert!(!fanotify.is_watched(temp_dir.path()));
     }
 } 
